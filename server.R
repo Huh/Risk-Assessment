@@ -18,8 +18,8 @@ shinyServer(function(input, output, session){
         if(input$distr_type == "Continuous"){
             cond_var <- input$mu_slider * (1 - input$mu_slider)
             updateSliderInput(session, "sd_slider", "Uncertainty",
-                min = 0, max = cond_var - 0.01, value = 0.01,
-                step = 0.005)
+                min = 0.000005, max = cond_var - 0.01, value = 0.000005,
+                step = 0.000005)
         }
     })
 
@@ -56,7 +56,8 @@ shinyServer(function(input, output, session){
             ylab("") +
             theme(legend.position = "none") +
 			theme(panel.border = element_blank(),
-			    axis.line = element_line(color = "black"))
+			    axis.line = element_line(color = "black")) +
+            xlim(c(0, 1))
     })
 
     #  Generate a user input number of boxes for discrete analysis
@@ -85,7 +86,7 @@ shinyServer(function(input, output, session){
         }
     })
 
-    output$sum20 <- renderText({
+    catVals <- reactive({
         if(is.null(input$n_groups))
             return()
 
@@ -96,7 +97,20 @@ shinyServer(function(input, output, session){
             user_vals[i] <- as.numeric(input[[paste0("txt", i)]])
         }
 
-        sum(user_vals)
+    return(user_vals)
+    })
+
+    output$sum20 <- renderText({
+        sum(catVals())
+    })
+
+    output$warn20 <- renderText({
+
+        if(sum(catVals()) == 20){
+            ""
+        }else{
+            "Sum of the groups must equal 20!"
+        }
 
     })
 
@@ -106,26 +120,21 @@ shinyServer(function(input, output, session){
             return()
 
         #  Recover user inputs
-        user_vals <- numeric(as.numeric(input$n_groups))
+        dat <- data.frame(
+            group = 1:input$n_groups,
+            vals = catVals(),
+            sum20 = sum(catVals()) == 20)
 
-        for(i in 1:length(user_vals)){
-            user_vals[i] <- as.numeric(input[[paste0("txt", i)]])
-        }
-
-        #  Create data
-        dat <- data.frame(vals = sample(1:length(user_vals), 30000,
-            prob = user_vals, replace = T))
-
-        ggplot(dat, aes(x = vals)) +
+        ggplot(dat, aes(x = group, y = vals)) +
             geom_bar(fill = rgb(0, 132, 204, 200, maxColorValue = 255),
-                binwidth = 1, origin = -0.5) +
+                binwidth = 1, origin = -0.5, stat = "identity") +
             theme_bw() +
             xlab("") +
             ylab("Count") +
             theme(legend.position = "none") +
 			theme(panel.border = element_blank(),
 			    axis.line = element_line(color = "black")) +
-            scale_x_continuous(breaks = 0:length(user_vals),
+            scale_x_continuous(breaks = dat$group,
                 limits = c(0.5, (as.numeric(input$n_groups) + 0.5)))
 
     })

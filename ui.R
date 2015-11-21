@@ -53,13 +53,13 @@ shinyUI(fluidPage(
                     fluidRow(
                         column(6,
                             sliderInput("mu_slider", "Expected Value",
-                                min = 0.01, max = 0.99, value = 0.5, step = 0.1,
-                                width = "100%")
+                                min = 0.05, max = 0.95, value = 0.5,
+                                step = 0.05, width = "100%", sep = "")
                         ),
                         column(6,
                             sliderInput("sd_slider", "Uncertainty",
-                                min = 0, max = 0.25, value = 0.01, step = 0.1,
-                                width = "100%")
+                                min = 0.000005, max = 0.009, value = 0.000005,
+                                step = 0.000005, width = "100%", sep = "")
                         )
                     ),
                     fluidRow(
@@ -76,12 +76,11 @@ shinyUI(fluidPage(
                         uiOutput("g_boxes2")
                     ),
                     hr(),
-                    h5("The sum of the groups must equal 20!",
-                        style = "color:red"),
                     fluidRow(
                         column(6, h4("Current Groups Sum")),
                         column(6, h4(textOutput("sum20")))
                     ),
+                    h5(textOutput("warn20"), style = "color:red"),
                     hr(),
                     plotOutput("disc_plot")
                 ),
