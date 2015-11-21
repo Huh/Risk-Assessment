@@ -117,7 +117,7 @@ shinyUI(fluidPage(
                     )
                 )
             )
-        )
+        , type = "pills")
     )
   )
 ))

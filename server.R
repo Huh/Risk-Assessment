@@ -91,13 +91,21 @@ shinyServer(function(input, output, session){
             return()
 
         #  Recover user inputs
-        user_vals <- numeric(as.numeric(input$n_groups))
+        index <- grep("^txt", names(input))
 
-        for(i in 1:length(user_vals)){
-            user_vals[i] <- as.numeric(input[[paste0("txt", i)]])
+        if(length(index) < 1){
+            return()
+        }else{
+
+            n_vals <- length(index)
+            user_vals <- numeric(as.numeric(n_vals))
+
+            for(i in 1:n_vals){
+                user_vals[i] <- as.numeric(input[[paste0("txt", i)]])
+            }
+
+        return(user_vals)
         }
-
-    return(user_vals)
     })
 
     output$sum20 <- renderText({
@@ -120,22 +128,24 @@ shinyServer(function(input, output, session){
             return()
 
         #  Recover user inputs
-        dat <- data.frame(
+        dat <- try(data.frame(
             group = 1:input$n_groups,
             vals = catVals(),
-            sum20 = sum(catVals()) == 20)
+            sum20 = sum(catVals()) == 20), silent = T)
 
-        ggplot(dat, aes(x = group, y = vals)) +
-            geom_bar(fill = rgb(0, 132, 204, 200, maxColorValue = 255),
-                binwidth = 1, origin = -0.5, stat = "identity") +
-            theme_bw() +
-            xlab("") +
-            ylab("Count") +
-            theme(legend.position = "none") +
-			theme(panel.border = element_blank(),
-			    axis.line = element_line(color = "black")) +
-            scale_x_continuous(breaks = dat$group,
-                limits = c(0.5, (as.numeric(input$n_groups) + 0.5)))
+        if(is.data.frame(dat)){
+            ggplot(dat, aes(x = group, y = vals)) +
+                geom_bar(fill = rgb(0, 132, 204, 200, maxColorValue = 255),
+                    binwidth = 1, origin = -0.5, stat = "identity") +
+                theme_bw() +
+                xlab("") +
+                ylab("Count") +
+                theme(legend.position = "none") +
+    			theme(panel.border = element_blank(),
+    			    axis.line = element_line(color = "black")) +
+                scale_x_continuous(breaks = dat$group,
+                    limits = c(0.5, (as.numeric(input$n_groups) + 0.5)))
+        }
 
     })
 
