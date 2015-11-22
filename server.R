@@ -1,5 +1,8 @@
 library(shiny)
 library(ggplot2)
+library(googlesheets)
+library(DT)
+library(dplyr)
 
 estBetaParams <- function(mu, var) {
     alpha <- mu * (((mu * (1 - mu))/var) - 1)
@@ -7,10 +10,12 @@ estBetaParams <- function(mu, var) {
     return(params = list(alpha = alpha, beta = beta))
 }
 
-iter <- 0
+data_url <- "https://docs.google.com/spreadsheets/d/1S2yrIGxIu4O8AoGondi3Iqj-QXoeGHlzXLkyprwj8Pg/pub?output=csv"
 
 # Define server logic for random distribution application
 shinyServer(function(input, output, session){
+
+    sheet <- gs_url(data_url)
 
     #  Observe mean slider and update SD slider to appropriate range when mu
     #  changes
@@ -26,19 +31,23 @@ shinyServer(function(input, output, session){
     #  Create container to hold data because it is used in at least two places
     dat_in <- reactiveValues()
 
+    #  Plot of continuous data
     output$cont_plot <- renderPlot({
         #  Estimate beta parameters from input sliders
         beta_parms <- estBetaParams(input$mu_slider, input$sd_slider)
 
         #  Assign parameters to data container for later
         dat_in$parms <- data.frame(
-            id = input$userid,
-            disease = input$disease,
-            scenario = input$scenario,
-            name = ifelse(is.null(input$ds_name), NA, input$ds_name),
-            facilitator = input$facilitator,
-            alpha = beta_parms$alpha,
-            beta = beta_parms$beta)
+            ID = input$userid,
+            Disease = input$disease,
+            Scenario = input$scenario,
+            Name = ifelse(is.null(input$ds_name), "None", input$ds_name),
+            Facilitator = input$facilitator,
+            Time = as.numeric(Sys.time()),
+            Distribution = "beta",
+            Parameter = c("alpha", "beta"),
+            Value = c(beta_parms$alpha, beta_parms$beta),
+            sum20 = NA)
 
         #  Create data frame of 10,000 random draws from beta distribution
         #  parameterized by slider values, but this will only occur when
@@ -63,8 +72,10 @@ shinyServer(function(input, output, session){
     #  Generate a user input number of boxes for discrete analysis
     output$g_boxes1 <- renderUI({
         fluidRow(
-            lapply(1:ifelse(input$n_groups <= 6, input$n_groups, 6), function(i){
-                column(floor(12/ifelse(input$n_groups <= 6, input$n_groups, 6)),
+            lapply(1:ifelse(input$n_groups <= 6, input$n_groups, 6),
+                function(i){
+                    column(floor(12/ifelse(input$n_groups <= 6,
+                        input$n_groups, 6)),
                     textInput(paste0("txt", i), paste("Group", i),
                         width = "80px", value = ifelse(i == 1, 20, 0))
                 )
@@ -72,6 +83,8 @@ shinyServer(function(input, output, session){
         )
     })
 
+    #  If the number of boxes is > 6 they get hard to see the numbers in the box
+    #  This chunk of code creates a second row for the second set of boxes
     output$g_boxes2 <- renderUI({
         if(input$n_groups > 6){
             tmp <- input$n_groups - 6
@@ -86,6 +99,8 @@ shinyServer(function(input, output, session){
         }
     })
 
+    #  A reactive function to extract the user input values for each group, it
+    #  is used by sum20, warn20 and in the cat plot
     catVals <- reactive({
         if(is.null(input$n_groups))
             return()
@@ -108,10 +123,12 @@ shinyServer(function(input, output, session){
         }
     })
 
+    #  Text that reports the sum of the user inputs
     output$sum20 <- renderText({
         sum(catVals())
     })
 
+    #  A bit of text that appears when user inputs do not sum to 20
     output$warn20 <- renderText({
 
         if(sum(catVals()) == 20){
@@ -129,12 +146,21 @@ shinyServer(function(input, output, session){
 
         #  Recover user inputs
         dat <- try(data.frame(
-            group = 1:input$n_groups,
-            vals = catVals(),
-            sum20 = sum(catVals()) == 20), silent = T)
+            ID = input$userid,
+            Disease = input$disease,
+            Scenario = input$scenario,
+            Name = ifelse(is.null(input$ds_name), "None", input$ds_name),
+            Facilitator = input$facilitator,
+            Time = as.numeric(Sys.time()),
+            Distribution = "multinom",
+            Parameter = 1:input$n_groups,
+            Value = catVals()/20,
+            Sum20 = sum(catVals()) == 20), silent = T)
 
         if(is.data.frame(dat)){
-            ggplot(dat, aes(x = group, y = vals)) +
+            dat_in$parms <- dat
+
+            ggplot(dat, aes(x = Parameter, y = Value)) +
                 geom_bar(fill = rgb(0, 132, 204, 200, maxColorValue = 255),
                     binwidth = 1, origin = -0.5, stat = "identity") +
                 theme_bw() +
@@ -143,24 +169,74 @@ shinyServer(function(input, output, session){
                 theme(legend.position = "none") +
     			theme(panel.border = element_blank(),
     			    axis.line = element_line(color = "black")) +
-                scale_x_continuous(breaks = dat$group,
+                scale_x_continuous(breaks = dat$Parameter,
                     limits = c(0.5, (as.numeric(input$n_groups) + 0.5)))
         }
 
     })
 
-    #  Update text that reports the quantiles
+    #  Report quantiles in continuous case
     output$min_val <- renderText({
         paste("Lower probable bound =",
             round(quantile(dat_in$dat$val, 0.025), 2))
     })
+
     output$mean_val <- renderText({
         paste("Most likely value =", round(quantile(dat_in$dat$val, 0.5), 2))
     })
+
     output$max_val <- renderText({
         paste("Upper probable bound =",
             round(quantile(dat_in$dat$val, 0.975), 2))
     })
+
+    #  For debugging, print user created data
+    observe({ print(dat_in$parms) })
+
+    #  Connect with googlesheet and display
+    output$user_responses <- DT::renderDataTable({
+        input$refresh
+
+        #  Setup googlesheet
+        sheet <- sheet %>%
+            gs_read_csv(.)
+
+        DT::datatable(sheet,
+            escape = T,
+            style = 'bootstrap',
+            selection = 'multiple',
+            rownames = FALSE,
+            filter = list(position = 'bottom', clear = F),
+            extensions = c('ColReorder', 'ColVis', 'FixedHeader',
+                'TableTools'),
+		    options = list(
+                pageLength = 20,
+                dom = 'CTRltir',
+                lengthMenu = list(c(20, 50, 100, -1),
+                                  c('20', '50', '100', 'All')),
+                tableTools = list(sSwfPath = copySWF()))
+        )
+    })
+
+    #  Edit data when user tells you to do so
+    observeEvent(input$fitgo, {
+        if(is.null(dat_in$parms))
+            return()
+
+        withProgress(message = "Adding Data to Table", value = 0.2, {
+
+            for(i in 1:nrow(dat_in$parms)){
+                sheet %>% gs_add_row(ws = 1, input = dat_in$parms[i,])
+                incProgress(amount = 0.1, detail = paste("Adding row", i))
+            }
+
+        })
+
+    })
+
+
+
+
 
 
 })

@@ -3,9 +3,17 @@ library(shiny)
 # Define UI for random distribution application
 shinyUI(fluidPage(
   tags$head(
+    tags$style(HTML(".shiny-progress .progress{ height:25px }")),
     tags$style(HTML('#fitgo{background-color:#0044CC;
                         color:white;
-                        margin-top:40px}'))
+                        margin-top:40px;
+                        margin-bottom:200px;
+                        float:right}')),
+    tags$style(HTML('#refresh{background-color:#0044CC;
+                        color:white;
+                        margin-top:40px;
+                        float:right;
+                        margin-bottom:200px}'))
   ),
 
   # Application title
@@ -86,38 +94,16 @@ shinyUI(fluidPage(
                 ),
                 tags$div(title = "Click here to submit your opinion",
                     shiny::actionButton("fitgo", "Submit",
-                        width = "100%",
-                        icon = icon("exchange")),
-                    style = "padding-bottom:200px")
+                        icon = icon("exchange")))
 
             ),
             tabPanel("My Results",
-                fluidRow(
-                    column(4,
-                        tags$div(title = "If you provided a unique name for
-                            each scenario you can use this box to display the
-                            results of those excercises.",
-                            selectInput("ds_name_recall", "Scenario Name",
-                                choices = NULL)
-                        )
-                    ),
-                    column(4,
-                        tags$div(title = "Choose the disease number you would
-                            like to display",
-                            selectInput("disease_recall", "Disease Number",
-                                choices = 1:50)
-                        )
-                    ),
-                    column(4,
-                        tags$div(title = "Choose the scenario number you would
-                            like to display",
-                            selectInput("scenario_recall", "Scenario Number",
-                                choices = 1:50)
-                        )
-                    )
-                )
+                hr(),
+                DT::dataTableOutput("user_responses"),
+                tags$div(title = "Click here to check for updated data",
+                    actionButton("refresh", "Refresh Data"))
             )
         , type = "pills")
     )
-  )
-))
+  ), title = "PopR", collapsible = T)
+)
