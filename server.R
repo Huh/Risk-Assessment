@@ -198,19 +198,26 @@ shinyServer(function(input, output, session){
         input$refresh
 
         #  Setup googlesheet
-        sheet <- sheet %>%
-            gs_read_csv(.)
+        out <- sheet %>%
+            gs_read_csv(.) %>%
+            filter(ID == input$userid) %>%
+            select(Disease, Scenario, Name, Facilitator, Distribution,
+                Parameter, Value) %>%
+            mutate(Distribution = replace(Distribution,
+                    Distribution == "beta", "Continuous"),
+                Distribution = replace(Distribution,
+                    Distribution == "multinom", "Discrete"))
 
-        DT::datatable(sheet,
+        DT::datatable(out,
             escape = T,
             style = 'bootstrap',
             selection = 'multiple',
             rownames = FALSE,
-            filter = list(position = 'bottom', clear = F),
+            filter = list(position = 'top', clear = F),
             extensions = c('ColReorder', 'ColVis', 'FixedHeader',
                 'TableTools'),
 		    options = list(
-                pageLength = 20,
+		        pageLength = -1,
                 dom = 'CTRltir',
                 lengthMenu = list(c(20, 50, 100, -1),
                                   c('20', '50', '100', 'All')),
@@ -233,10 +240,5 @@ shinyServer(function(input, output, session){
         })
 
     })
-
-
-
-
-
 
 })
