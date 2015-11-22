@@ -214,8 +214,7 @@ shinyServer(function(input, output, session){
             selection = 'multiple',
             rownames = FALSE,
             filter = list(position = 'top', clear = F),
-            extensions = c('ColReorder', 'ColVis', 'FixedHeader',
-                'TableTools'),
+            extensions = c('ColReorder', 'ColVis'),
 		    options = list(
 		        pageLength = -1,
                 dom = 'CTRltir',
